@@ -1,0 +1,526 @@
+openapi: 3.0.0
+servers: []
+info:
+  version: "1.0.0"
+  title: Open European Public Transit Format (OEPTF)
+  contact:
+    email: tristan.marsell@axitera.de
+  license:
+    name: BSD-3-Clause
+    url: 'https://opensource.org/licenses/BSD-3-Clause'
+  description: An european standard for public transit.
+tags:
+  - name: Trip
+    description: Trip search endpoints
+  - name: Timetable
+    description: Timetable search endpoints
+  - name: Place
+    description: Place search endpoints
+paths:
+  /trip/{source}:
+    post:
+      tags:
+        - Trip
+      description: "Creates a tripsearch instance and searches for your given parameters to the Search body"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+      requestBody:
+        description: "Request body of the trip search"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Search'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Search'
+      responses:
+        '200':
+          description: "search results matching criteria"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResult'
+        '500':
+          description: "Something failed in search"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /timetable/{source}:
+    post:
+      tags:
+        - Timetable
+      description: "Creates a timetable instance and obtains stopovers for your given parameters to the TimetableSearch body"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+      requestBody:
+        description: "Request body of the timetable request"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimetableSearch'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimetableSearch'
+      responses:
+        '200':
+          description: "timetable body is valid and timetable was found"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Timetable'
+        '500':
+          description: "Something failed in getting the timetable"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /place/search/{source}:
+    get:
+      tags:
+        - Place
+      description: "Searches for places given to the coordinates"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+            format: decimal
+            minimum: 0
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+            format: decimal
+            minimum: 0
+      responses:
+        '200':
+          description: "Location is valid"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResult'
+        '500':
+          description: "Something failed in getting the places"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+components:
+  schemas:
+    AdditionalInformation:
+      type: object
+      properties:
+        key:
+          type: string
+          description: "Key of your additional information"
+        value:
+          type: string
+          description: "Value of your additional information"
+      description: "Object for storing additional informations"
+    Error:
+      description: "Error body for error responses"
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          description: "Shows reason of error"
+        stacktrace:
+          type: string
+          description: "OPTIONAL: Shows complete stacktrace"
+    Location:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: decimal
+        longitude:
+          type: number
+          format: decimal
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+      description: "Includes coordinates and has NO additional information. Location objects should be always accurate to the place given to it. "
+    Place:
+      type: object
+      required:
+        - location
+        - stationID
+        - name
+        - placeType
+      properties:
+        location:
+          $ref: '#/components/schemas/Location'
+        stationID:
+          type: string
+          description: "The Station identifier has to be UNIQUE, even on submerged datasets this has to be the rule"
+        name:
+          type: string
+          description: "Exact name of the station, given by the data source"
+        colloquialName:
+          type: string
+          nullable: true
+          description: "OPTIONAL: If your station is named differently by the community, entering a colloquial name can help."
+        features:
+          type: array
+          items:
+            type: string
+          description: "Description of features your place has. Depending on your data source, they can be completely different."
+        placeType:
+          type: string
+          enum:
+            - station
+            - coordinate
+            - point_of_interest
+            - extraordinate_place
+        vehicleTypes:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum:
+              - intercity_express_train
+              - intercity_train
+              - eurocity_train
+              - regional_express_train
+              - regional_train
+              - suburban_train
+              - subway
+              - tram
+              - bus
+              - transrapid
+              - autonomous_vehicle
+              - ondemand
+              - bike
+              - walking
+              - misc
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+      description: "Place is an object with coordinates, descriptions, informations and identifier. "
+    PlaceResult:
+      type: object
+      description: "Response of a trip search, including multiple trips sorted by importance"
+      required:
+        - places
+      properties:
+        serverRequestTimestamp:
+          type: integer
+          format: timestamp
+          description: "Timestamp when your server has started the request"
+        serverResponseTimestamp:
+          type: integer
+          format: timestamp
+          description: "Timestamp when your server has finished the request"
+        places:
+          type: array
+          items:
+            $ref: '#/components/schemas/Place'
+    Search:
+      description: "This object represents the search body given to the trip search."
+      type: object
+      properties:
+        originID:
+          type: string
+          description: "The ID of your start station/place"
+        destinationID:
+          type: string
+          description: "The ID of your target station/place"
+        time:
+          type: string
+          format: date-time
+          description: "Datetime where you want to search for"
+        isArrivalTime:
+          type: boolean
+          description: "Shows if your time is for departure or arrival of your trip."
+    Stopover:
+      description: "The place of your stopover. Includes place of arrival and times."
+      type: object
+      required:
+        - place
+        - departureTime
+        - arrivalTime
+      properties:
+        place:
+          $ref: '#/components/schemas/Place'
+        lane:
+          type: string
+          nullable: true
+          description: "If exist, your arrival lane can be shown here for more precise information."
+        departureTime:
+          $ref: '#/components/schemas/Time'
+        departureRealtime:
+          $ref: '#/components/schemas/Time'
+        arrivalTime:
+          $ref: '#/components/schemas/Time'
+        arrivalRealtime:
+          $ref: '#/components/schemas/Time'
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    SubTrip:
+      description: "Part of a trip"
+      type: object
+      required:
+        - origin
+        - destination
+        - departureTime
+        - arrivalTime
+        - vehicle
+      properties:
+        origin:
+          $ref: '#/components/schemas/Stopover'
+        destination:
+          $ref: '#/components/schemas/Stopover'
+        stopovers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stopover'
+          description: "OPTIONAL: Shows how many stopovers between origin and destination exist."
+        departureTime:
+          $ref: '#/components/schemas/Time'
+        departureRealtime:
+          $ref: '#/components/schemas/Time'
+        arrivalTime:
+          $ref: '#/components/schemas/Time'
+        arrivalRealtime:
+          $ref: '#/components/schemas/Time'
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    Time:
+      description: "Time object for precise times."
+      type: object
+      required:
+        - time
+        - unixTime
+      properties:
+        time:
+          type: string
+          format: date-time
+          description: "Date time in RFC 3339 standard."
+        unixTime:
+          type: number
+          format: decimal
+          description: "Date time as unix timestamp. (For languages which can't parse a timestamp)"
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    Timetable:
+      type: object
+      description: "The timetable of a place where your next departures/arrivals are listed"
+      required:
+        - place
+        - trips
+      properties:
+        serverRequestTimestamp:
+          type: number
+          format: decimal
+          description: "Timestamp when your server has started the request"
+        serverResponseTimestamp:
+          type: number
+          format: decimal
+          description: "Timestamp when your server has finished the request"
+        place:
+          $ref: '#/components/schemas/Place'
+        trips:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TimetableTrip'
+          description: "Shows which departures/arrivals your timetable have."
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    TimetableSearch:
+      description: "This object represents the search body given to the timetable search."
+      type: object
+      properties:
+        stationID:
+          type: string
+          description: "The ID of your station/place you want the timetable from"
+        lookupTime:
+          type: string
+          format: date-time
+          description: "Datetime where you want to search for"
+        isArrivalTime:
+          type: boolean
+          description: "Shows if your time is for departure or arrival of your first timetable object."
+    TimetableTrip:
+      type: object
+      description: "A trip which includes your timetable place as stopover."
+      required:
+        - origin
+        - destination
+        - time
+        - vehicle
+      properties:
+        origin:
+          $ref: '#/components/schemas/Place'
+        destination:
+          $ref: '#/components/schemas/Place'
+        stopovers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stopover'
+          description: "OPTIONAL: Shows how many stopovers this current timetable trip has."
+        time:
+          $ref: '#/components/schemas/Time'
+        vehicle:
+          $ref: '#/components/schemas/Vehicle'
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    Trip:
+      description: "This object represents a whole trip with stops, times, etc."
+      type: object
+      required:
+        - origin
+        - destination
+        - departure
+        - arrival
+        - amountOfExchange
+        - subtrips
+      properties:
+        context:
+          type: string
+          description: "Context identifier of your search provider to create searches following your previous context"
+        origin:
+          $ref: '#/components/schemas/Place'
+        destination:
+          $ref: '#/components/schemas/Place'
+        departure:
+          $ref: '#/components/schemas/Time'
+        arrival:
+          $ref: '#/components/schemas/Time'
+        amountOfExchange:
+          type: integer
+          description: "Tells how many exchanges between stations/lanes a trip has."
+        subtrips:
+          type: array
+          description: "An array of found trips to your search"
+          items:
+            $ref: '#/components/schemas/SubTrip'
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    TripResult:
+      description: "This object represents the result of a trip search"
+      type: object
+      required:
+        - searchBody
+        - origin
+        - destination
+      properties:
+        searchBody:
+          $ref: '#/components/schemas/Search'
+        serverRequestTimestamp:
+          type: number
+          format: decimal
+          description: "Timestamp when your server has started the request"
+        serverResponseTimestamp:
+          type: number
+          format: decimal
+          description: "Timestamp when your server has finished the request"
+        origin:
+          $ref: '#/components/schemas/Place'
+        destination:
+          $ref: '#/components/schemas/Place'
+        trips:
+          type: array
+          nullable: true
+          description: "An array of found trips to your search"
+          items:
+            $ref: '#/components/schemas/Trip'
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
+    Vehicle:
+      description: "This object shows the vehicle using for a trip"
+      type: object
+      required:
+        - name
+        - provider
+        - vehicleType
+      properties:
+        name:
+          type: string
+          description: "General name of your current vehicle"
+        lineName:
+          type: string
+          description: "OPTIONAL: Line name of your vehicle. Always nice to have this information, but still it's not required to set this property."
+        features:
+          type: array
+          items:
+            type: string
+          description: "Description of features your vehicle has. Depending on your data source, they can be completely different."
+        provider:
+          type: string
+          description: "The provider of your vehicle. It's required because everyone should know in our opinion who serves public transport to you."
+        vehicleType:
+          type: string
+          enum:
+            - intercity_express_train
+            - intercity_train
+            - eurocity_train
+            - regional_express_train
+            - regional_train
+            - suburban_train
+            - subway
+            - tram
+            - bus
+            - transrapid
+            - autonomous_vehicle
+            - ondemand
+            - bike
+            - walking
+            - misc
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'
