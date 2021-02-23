@@ -11,18 +11,18 @@ Some semantics are made for european purposes only (like INTERCITY_EXPRESS_TRAIN
 
 ## What do we want to achieve?
 
-We try to keep things european and future-proof:
+**We try to keep things european and future-proof:**
  - European Semantics (like ICE, IC, EC, etc.)
  - Future Proof (fields for Autonomous driving, Transrapid, etc.)
 
-and flexible: 
+**and flexible:**
  - Fits everywhere: only basic fields are required, everything else is optional
  - No limits: Works perfectly with gRPC, REST, etc. due to the OpenAPI nature
 
-but standardized:
+**but standardized:**
  - Easy data source switching: OEPTF endpoints are easy to switch due to the standardized search query and endpoints
 
-It's reusable:
+**It's reusable:**
   - Simple objects: We keep our objects simple to be able to reuse objects
   - Sharing: Some objects are shared with eachother, making interoperabillity much easier
 
