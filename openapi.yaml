@@ -1,5 +1,10 @@
 openapi: 3.0.0
-servers: []
+servers: 
+  - url: http://localhost:5080
+    description: Local REST server  
+  - url: grpc://localhost:5111
+    description: Local gRPC server
+
 info:
   version: "1.0.0"
   title: Open European Public Transit Format (OEPTF)
@@ -8,7 +13,7 @@ info:
   license:
     name: BSD-3-Clause
     url: 'https://opensource.org/licenses/BSD-3-Clause'
-  description: An european standard for public transit.
+  description: 'An european standard for public transit. Made for flexibility, future proof and european public transit. Works perfectly with REST and gRPC.'
 tags:
   - name: Trip
     description: Trip search endpoints
@@ -36,9 +41,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/Search'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/Search'
       responses:
         '200':
           description: "search results matching criteria"
@@ -46,12 +48,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripResult'
+            application/x-protobuf:
+              schema:
+                $ref: '#/components/schemas/TripResult'    
         '500':
           description: "Something failed in search"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /trip/more/{source}:
+    post:
+      tags:
+        - Trip
+      description: "Creates an additional tripsearch depending on the context of your current tripsearch"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+      requestBody:
+        description: "Request body of the trip more search"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoreTripsSearch'
+      responses:
+        '200':
+          description: "search results matching criteria"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripResult'
+            application/x-protobuf:
+              schema:
+                $ref: '#/components/schemas/TripResult'    
+        '500':
+          description: "Something failed in search"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'              
   /timetable/{source}:
     post:
       tags:
@@ -71,9 +111,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TimetableSearch'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/TimetableSearch'
       responses:
         '200':
           description: "timetable body is valid and timetable was found"
@@ -81,6 +118,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Timetable'
+            application/x-protobuf:
+              schema:
+                $ref: '#/components/schemas/Timetable'    
+        '500':
+          description: "Something failed in getting the timetable"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /timetable/suggestions/{source}:
+    post:
+      tags:
+        - Timetable
+      description: "Creates a timetable instance containing suggested timetables with their information"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+      requestBody:
+        description: "Request body of the timetable request"
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimetableSearch'
+      responses:
+        '200':
+          description: "timetable body is valid and timetable suggestions were found"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimetableSuggestions'
         '500':
           description: "Something failed in getting the timetable"
           content:
@@ -88,6 +160,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
   /place/search/{source}:
+    get:
+      tags:
+        - Place
+      description: "Searches for places given to the query"
+      parameters:
+        - in: path
+          name: source
+          required: true
+          schema:
+            type: string
+          description: Data source to be selected on.
+        - in: query
+          name: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: "Query is valid and locations exi"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceResult'
+            application/x-protobuf:    
+              schema:
+                $ref: '#/components/schemas/PlaceResult'
+        '500':
+          description: "Something failed in getting the places"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'              
+  /place/nearby/{source}:
     get:
       tags:
         - Place
@@ -104,14 +209,14 @@ paths:
           required: true
           schema:
             type: number
-            format: decimal
+            format: double
             minimum: 0
         - in: query
           name: longitude
           required: true
           schema:
             type: number
-            format: decimal
+            format: double
             minimum: 0
       responses:
         '200':
@@ -157,16 +262,26 @@ components:
       properties:
         latitude:
           type: number
-          format: decimal
+          format: double
         longitude:
           type: number
-          format: decimal
+          format: double
         additionalInformation:
           type: array
           nullable: true
           items:
             $ref: '#/components/schemas/AdditionalInformation'
       description: "Includes coordinates and has NO additional information. Location objects should be always accurate to the place given to it. "
+    MoreTripsSearch:
+      description: "This object represents the search body given to the trip search."
+      type: object
+      properties:
+        context:
+          type: string
+          description: "Context ID"
+        showTripsBefore:
+          type: boolean
+          description: "Shows trips before the given context, if set to false, it shows trips after the given context."  
     Place:
       type: object
       required:
@@ -205,9 +320,15 @@ components:
           items:
             type: string
             enum:
+              - airplane
               - intercity_express_train
               - intercity_train
+              - eurocity_express_train
               - eurocity_train
+              - overnight_train
+              - high_speed_train
+              - interregional_express_train
+              - interregional_train
               - regional_express_train
               - regional_train
               - suburban_train
@@ -215,7 +336,16 @@ components:
               - tram
               - bus
               - transrapid
+              - cablecar
+              - taxi
               - autonomous_vehicle
+              - space_vehicle
+              - ridesharing
+              - carsharing
+              - ferry
+              - cruise_ship
+              - car
+              - motorbike
               - ondemand
               - bike
               - walking
@@ -233,12 +363,12 @@ components:
         - places
       properties:
         serverRequestTimestamp:
-          type: integer
-          format: timestamp
+          type: number
+          format: double
           description: "Timestamp when your server has started the request"
         serverResponseTimestamp:
-          type: integer
-          format: timestamp
+          type: number
+          format: double
           description: "Timestamp when your server has finished the request"
         places:
           type: array
@@ -266,8 +396,6 @@ components:
       type: object
       required:
         - place
-        - departureTime
-        - arrivalTime
       properties:
         place:
           $ref: '#/components/schemas/Place'
@@ -294,8 +422,6 @@ components:
       required:
         - origin
         - destination
-        - departureTime
-        - arrivalTime
         - vehicle
       properties:
         origin:
@@ -335,7 +461,7 @@ components:
           description: "Date time in RFC 3339 standard."
         unixTime:
           type: number
-          format: decimal
+          format: double
           description: "Date time as unix timestamp. (For languages which can't parse a timestamp)"
         additionalInformation:
           type: array
@@ -351,11 +477,11 @@ components:
       properties:
         serverRequestTimestamp:
           type: number
-          format: decimal
+          format: double
           description: "Timestamp when your server has started the request"
         serverResponseTimestamp:
           type: number
-          format: decimal
+          format: double
           description: "Timestamp when your server has finished the request"
         place:
           $ref: '#/components/schemas/Place'
@@ -370,6 +496,34 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/AdditionalInformation'
+    TimetableSuggestions:
+      type: object
+      description: "The timetable of a place where your next departures/arrivals are listed"
+      required:
+        - place
+        - trips
+      properties:
+        serverRequestTimestamp:
+          type: number
+          format: double
+          description: "Timestamp when your server has started the request"
+        serverResponseTimestamp:
+          type: number
+          format: double
+          description: "Timestamp when your server has finished the request"
+        searchPlace:
+          $ref: '#/components/schemas/Place'
+        timetables:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Timetable'
+          description: "Shows suggested timetables based on your search place"
+        additionalInformation:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AdditionalInformation'        
     TimetableSearch:
       description: "This object represents the search body given to the timetable search."
       type: object
@@ -389,14 +543,17 @@ components:
       description: "A trip which includes your timetable place as stopover."
       required:
         - origin
-        - destination
+        - travelDestination
         - time
         - vehicle
       properties:
         origin:
           $ref: '#/components/schemas/Place'
-        destination:
-          $ref: '#/components/schemas/Place'
+        travelDestination:
+          $ref: '#/components/schemas/Place' 
+        lane:
+          type: string
+          description: "Lane where you can reach your vehicle"  
         stopovers:
           type: array
           items:
@@ -454,15 +611,18 @@ components:
         - origin
         - destination
       properties:
+        context:
+          type: string
+          description: "Optional context of this trip result."
         searchBody:
           $ref: '#/components/schemas/Search'
         serverRequestTimestamp:
           type: number
-          format: decimal
+          format: double
           description: "Timestamp when your server has started the request"
         serverResponseTimestamp:
           type: number
-          format: decimal
+          format: double
           description: "Timestamp when your server has finished the request"
         origin:
           $ref: '#/components/schemas/Place'
@@ -504,9 +664,15 @@ components:
         vehicleType:
           type: string
           enum:
+            - airplane
             - intercity_express_train
             - intercity_train
+            - eurocity_express_train
             - eurocity_train
+            - overnight_train
+            - high_speed_train
+            - interregional_express_train
+            - interregional_train
             - regional_express_train
             - regional_train
             - suburban_train
@@ -514,7 +680,16 @@ components:
             - tram
             - bus
             - transrapid
+            - cablecar
+            - taxi
             - autonomous_vehicle
+            - space_vehicle
+            - ridesharing
+            - carsharing
+            - ferry
+            - cruise_ship
+            - car
+            - motorbike
             - ondemand
             - bike
             - walking
